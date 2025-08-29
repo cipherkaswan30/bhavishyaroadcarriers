@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { CheckCircle, Clock, Trash2, FileText, Receipt } from 'lucide-react';
+import { CheckCircle, Clock, Trash2, FileText, Receipt, Download } from 'lucide-react';
 import { useDataStore } from '../lib/store';
 import { formatCurrency } from '../utils/numberGenerator';
+import { generateMemoPDF, generateBillPDF } from '../utils/pdfGenerator';
 import type { Memo, Bill } from '../types';
 
 const MemosAndBills: React.FC = () => {
-  const { memos, bills, deleteMemo, deleteBill, markMemoAsPaid, markBillAsReceived } = useDataStore();
+  const { memos, bills, deleteMemo, deleteBill, markMemoAsPaid, markBillAsReceived, loadingSlips } = useDataStore();
   const [activeTab, setActiveTab] = useState<'memos' | 'bills'>('memos');
 
   const pendingMemos = memos.filter(m => m.status === 'pending');
@@ -41,6 +42,77 @@ const MemosAndBills: React.FC = () => {
     }
   };
 
+  const handleDownloadMemoPDF = async (memo: Memo, isPaid: boolean = false) => {
+    const loadingSlip = loadingSlips.find(ls => ls.id === memo.loading_slip_id);
+    if (loadingSlip) {
+      try {
+        // Create a modified memo with watermark for paid status
+        const memoForPDF = isPaid ? {
+          ...memo,
+          memo_number: `${memo.memo_number}${isPaid ? '_PAID' : ''}`
+        } : memo;
+        await generateMemoPDF(memoForPDF, loadingSlip);
+      } catch (error) {
+        console.error('Error generating PDF:', error);
+        alert('Error generating PDF. Please try again.');
+      }
+    } else {
+      alert('Associated loading slip not found. Cannot generate PDF.');
+    }
+  };
+
+  const handleDownloadBillPDF = async (bill: Bill, isReceived: boolean = false) => {
+    const associatedLoadingSlip = loadingSlips.find(ls => ls.id === bill.loading_slip_id);
+    
+    if (associatedLoadingSlip) {
+      try {
+        // Create a modified bill with watermark for received status
+        const billForPDF = isReceived ? {
+          ...bill,
+          bill_number: `${bill.bill_number}_RECEIVED`
+        } : bill;
+        await generateBillPDF(billForPDF, associatedLoadingSlip);
+      } catch (error) {
+        console.error('Error generating PDF:', error);
+        alert('Error generating PDF. Please try again.');
+      }
+    } else {
+      // Create a dummy loading slip if no associated one is found
+      const dummyLoadingSlip = {
+        id: bill.id,
+        slip_number: `LS-${bill.bill_number}`,
+        date: bill.date,
+        party: bill.party,
+        vehicle_no: '',
+        from_location: '',
+        to_location: '',
+        dimension: '',
+        weight: 0,
+        supplier: bill.party,
+        freight: bill.net_amount,
+        advance: 0,
+        balance: bill.net_amount,
+        rto: 0,
+        total_freight: bill.net_amount,
+        narration: '',
+        created_at: bill.created_at,
+        updated_at: bill.updated_at
+      };
+      
+      try {
+        // Create a modified bill with watermark for received status
+        const billForPDF = isReceived ? {
+          ...bill,
+          bill_number: `${bill.bill_number}_RECEIVED`
+        } : bill;
+        await generateBillPDF(billForPDF, dummyLoadingSlip);
+      } catch (error) {
+        console.error('Error generating PDF:', error);
+        alert('Error generating PDF. Please try again.');
+      }
+    }
+  };
+
   const renderMemoCard = (memo: Memo, isPaid: boolean = false) => (
     <div key={memo.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
       <div className="flex items-center justify-between mb-3">
@@ -52,6 +124,13 @@ const MemosAndBills: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center space-x-2">
+          <button
+            onClick={() => handleDownloadMemoPDF(memo, isPaid)}
+            className="text-blue-600 hover:text-blue-800"
+            title="Download PDF"
+          >
+            <Download className="w-4 h-4" />
+          </button>
           {!isPaid && (
             <button
               onClick={() => handleMarkMemoAsPaid(memo)}
@@ -115,6 +194,13 @@ const MemosAndBills: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center space-x-2">
+          <button
+            onClick={() => handleDownloadBillPDF(bill, isReceived)}
+            className="text-blue-600 hover:text-blue-800"
+            title="Download PDF"
+          >
+            <Download className="w-4 h-4" />
+          </button>
           {!isReceived && (
             <button
               onClick={() => handleMarkBillAsReceived(bill)}

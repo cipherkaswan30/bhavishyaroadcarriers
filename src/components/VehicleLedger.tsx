@@ -367,7 +367,7 @@ const VehicleLedger: React.FC = () => {
                                   ? 'bg-green-100 text-green-800' 
                                   : 'bg-red-100 text-red-800'
                               }`}>
-                                {'category' in entry ? entry.category : (entry.ledger_type || 'general')}
+                                {('category' in entry ? entry.category : (entry.ledger_type || 'general')) as string}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
