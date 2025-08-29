@@ -1,0 +1,706 @@
+import jsPDF from 'jspdf';
+import { COMPANY_LOGO_BASE64 } from '../assets/logo';
+import type { LoadingSlip, Memo, Bill } from '../types';
+
+// Helper: ensure PNG data URL for jsPDF.addImage
+const ensurePngDataUrl = async (dataUrl: string): Promise<string> => {
+  try {
+    if (dataUrl.startsWith('data:image/png')) return dataUrl;
+    // Convert other formats (e.g., SVG/JPEG) to PNG via canvas
+    await new Promise<void>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve();
+      img.onerror = reject;
+      img.src = dataUrl;
+    });
+    const canvas = document.createElement('canvas');
+    const img = new Image();
+    img.src = dataUrl;
+    // Default canvas size based on image natural size; fallback if 0
+    const w = (img as any).naturalWidth || 256;
+    const h = (img as any).naturalHeight || 256;
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return dataUrl; // fallback
+    ctx.drawImage(img, 0, 0);
+    return canvas.toDataURL('image/png');
+  } catch {
+    return dataUrl; // fallback, jsPDF may still try
+  }
+};
+
+// Company details - you can modify these
+export const COMPANY_INFO = {
+  name: 'BHAVISHYA ROAD CARRIERS',
+  address: 'Specialist in Heavy ODC, Hydraulic, Low Bed Trailer, Flat Bed Trailer Transport & Commission Agent',
+  address2: 'FLEET OWNERS, TRANSPORT CONTRACTORS & COMMISSION AGENTS',
+  address3: 'MEMBER OF ALL INDIA MOTOR TRANSPORT CONGRESS',
+  phone: 'MOB: 9824026578, 9824900776',
+  pan: 'PAN NO: BNDPK7173D',
+  location: '404, Parijaat Business Center, Nr. SP Ring Road, Aslali, Ahmedabad - 382405',
+  tagline: 'DIRECT TO AHMEDABAD JURISDICTION'
+};
+
+// Utility function to format currency
+export const formatCurrency = (amount: number): string => {
+  return `Rs. ${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+// Utility function to format date
+export const formatDate = (dateString: string): string => {
+  return new Date(dateString).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
+
+// Generate Memo PDF - Portrait Format for single page fit
+export const generateMemoPDF = async (memo: Memo, loadingSlip: LoadingSlip): Promise<void> => {
+  const pdf = new jsPDF('p', 'mm', 'a4'); // Portrait orientation for better fit
+  const pageWidth = pdf.internal.pageSize.getWidth(); // 210mm in portrait
+  const pageHeight = pdf.internal.pageSize.getHeight(); // 297mm in portrait
+
+  // Add logo with proper positioning to avoid collision
+  try {
+    const logoPng = await ensurePngDataUrl(COMPANY_LOGO_BASE64);
+    pdf.addImage(logoPng, 'PNG', 15, 8, 25, 25); // Positioned on left side
+  } catch (error) {
+    console.warn('Could not add logo to PDF:', error);
+  }
+
+  // Company Header - Professional Layout with blue accent
+  pdf.setFontSize(16);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(25, 118, 210); // Professional blue color
+  pdf.text(COMPANY_INFO.name, pageWidth / 2, 15, { align: 'center' });
+
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(0, 0, 0);
+  pdf.text(COMPANY_INFO.address, pageWidth / 2, 21, { align: 'center' });
+  pdf.text(COMPANY_INFO.address2, pageWidth / 2, 25, { align: 'center' });
+  pdf.text(COMPANY_INFO.location, pageWidth / 2, 29, { align: 'center' });
+
+  // Contact details in header
+  pdf.setFontSize(7);
+  pdf.text(COMPANY_INFO.phone, 15, 37);
+  pdf.text(COMPANY_INFO.pan, pageWidth - 15, 37, { align: 'right' });
+  pdf.text(COMPANY_INFO.tagline, pageWidth / 2, 41, { align: 'center' });
+
+  // Header border - black color
+  pdf.setLineWidth(1);
+  pdf.setDrawColor(0, 0, 0);
+  pdf.rect(10, 5, pageWidth - 20, 40);
+
+  // Document title with blue background - matching the image style
+  pdf.setFillColor(52, 144, 220); // Exact blue color from image
+  pdf.rect(10, 50, pageWidth - 20, 12, 'F');
+  pdf.setFontSize(16);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(255, 255, 255);
+  pdf.text('MEMO', pageWidth / 2, 58, { align: 'center' });
+  pdf.setTextColor(0, 0, 0);
+
+  // Document details box - matching image layout
+  pdf.setLineWidth(0.5);
+  pdf.setDrawColor(0, 0, 0);
+  pdf.setTextColor(0, 0, 0);
+  pdf.rect(10, 67, pageWidth - 20, 15);
+  pdf.setFontSize(9);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text(`Memo No: ${memo.memo_number}`, 15, 72);
+  pdf.text(`Date: ${formatDate(memo.date)}`, pageWidth - 15, 72, { align: 'right' });
+  pdf.text(`Supplier: ${memo.supplier}`, 15, 78);
+  pdf.text(`Vehicle No: ${loadingSlip.vehicle_no}`, pageWidth - 15, 78, { align: 'right' });
+
+  // Transport Details Section with blue background - matching image
+  pdf.setFillColor(52, 144, 220);
+  pdf.rect(10, 87, pageWidth - 20, 8, 'F');
+  pdf.setFontSize(11);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(255, 255, 255);
+  pdf.text('TRANSPORT DETAILS', 15, 93);
+  pdf.setTextColor(0, 0, 0);
+
+  // Transport details table - matching image layout
+  pdf.setLineWidth(0.5);
+  const transportY = 100;
+
+  // From/To section with proper borders
+  pdf.rect(10, transportY, (pageWidth - 20) / 2, 12);
+  pdf.rect(10 + (pageWidth - 20) / 2, transportY, (pageWidth - 20) / 2, 12);
+
+  pdf.setFontSize(9);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('FROM:', 15, transportY + 4);
+  pdf.text('TO:', 15 + (pageWidth - 20) / 2, transportY + 4);
+
+  pdf.setFont('helvetica', 'normal');
+  pdf.text(loadingSlip.from_location, 15, transportY + 8);
+  pdf.text(loadingSlip.to_location, 15 + (pageWidth - 20) / 2, transportY + 8);
+
+  // Material and weight section
+  pdf.rect(10, transportY + 12, (pageWidth - 20) / 2, 10);
+  pdf.rect(10 + (pageWidth - 20) / 2, transportY + 12, (pageWidth - 20) / 2, 10);
+
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('MATERIAL:', 15, transportY + 17);
+  pdf.text('WEIGHT:', 15 + (pageWidth - 20) / 2, transportY + 17);
+
+  pdf.setFont('helvetica', 'normal');
+  pdf.text('MACHINERY', 15, transportY + 21);
+  pdf.text(`${loadingSlip.weight} MT`, 15 + (pageWidth - 20) / 2, transportY + 21);
+
+  // Financial Breakdown Section with blue background - matching image
+  pdf.setFillColor(52, 144, 220);
+  pdf.rect(10, 127, pageWidth - 20, 8, 'F');
+  pdf.setFontSize(11);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(255, 255, 255);
+  pdf.text('FINANCIAL BREAKDOWN', 15, 133);
+  pdf.setTextColor(0, 0, 0);
+
+  const financialY = 140;
+  pdf.setLineWidth(0.5);
+
+  // Calculate total advances
+  const totalAdvances = memo.advance_payments?.reduce((sum, adv) => sum + adv.amount, 0) || 0;
+
+  // Financial table - matching image style with proper borders
+  const financialRows = [
+    ['Freight Amount:', formatCurrency(memo.freight)],
+    ['Add: Detention:', formatCurrency(memo.detention)],
+    ['Add: Extra Weight:', formatCurrency(memo.extra)],
+    ['Add: RTO:', formatCurrency(memo.rto)],
+    ['Less: Commission:', formatCurrency(memo.commission)],
+    ['Less: Mamool:', formatCurrency(memo.mamool)],
+    ['Less: Advance Paid:', formatCurrency(totalAdvances)]
+  ];
+
+  financialRows.forEach((row, index) => {
+    const rowY = financialY + (index * 7);
+    pdf.rect(10, rowY, pageWidth - 20, 7);
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(row[0], 15, rowY + 5);
+    pdf.text(row[1], pageWidth - 15, rowY + 5, { align: 'right' });
+  });
+
+  // Net Amount Payable with blue background - matching image
+  const netAmountY = financialY + (financialRows.length * 7);
+  pdf.setFillColor(52, 144, 220);
+  pdf.rect(10, netAmountY, pageWidth - 20, 8, 'F');
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(255, 255, 255);
+  pdf.text('NET AMOUNT PAYABLE:', 15, netAmountY + 5);
+  const actualNetAmount = memo.net_amount - totalAdvances;
+  pdf.text(formatCurrency(actualNetAmount), pageWidth - 15, netAmountY + 5, { align: 'right' });
+  pdf.setTextColor(0, 0, 0);
+
+  // Advance Details Section with blue background
+  const advanceY = netAmountY + 15;
+  pdf.setFillColor(25, 118, 210);
+  pdf.rect(10, advanceY - 5, pageWidth - 20, 8, 'F');
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(255, 255, 255);
+  pdf.text('ADVANCE DETAILS', 15, advanceY);
+  pdf.setTextColor(0, 0, 0);
+  
+  let currentAdvanceY = advanceY;
+  if (memo.advance_payments && memo.advance_payments.length > 0) {
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    memo.advance_payments.forEach((payment, index) => {
+      currentAdvanceY += 6;
+      pdf.text(`${index + 1}. Date: ${formatDate(payment.date)} - Amount: ${formatCurrency(payment.amount)} - Mode: ${payment.mode?.toUpperCase() || 'CASH'}`, 15, currentAdvanceY);
+    });
+  } else {
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('No advance payments recorded', 15, advanceY + 5);
+  }
+
+  // Signature section - portrait layout
+  const signatureY = advanceY + 25;
+  pdf.setTextColor(0, 0, 0);
+  pdf.setLineWidth(0.5);
+  pdf.line(20, signatureY, 90, signatureY);
+  pdf.line(pageWidth - 90, signatureY, pageWidth - 20, signatureY);
+
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text('SUPPLIER SIGNATURE', 55, signatureY + 5, { align: 'center' });
+  pdf.text('AUTHORISED SIGNATORY', pageWidth - 55, signatureY + 5, { align: 'center' });
+
+  pdf.setFont('helvetica', 'bold');
+  pdf.text(`FOR ${COMPANY_INFO.name}`, pageWidth - 55, signatureY + 10, { align: 'center' });
+
+  // Footer with system info
+  pdf.setFontSize(7);
+  pdf.setFont('helvetica', 'italic');
+  pdf.setTextColor(100, 100, 100);
+  pdf.text('GENERATED FROM BHAVISHYA ROAD CARRIER SYSTEM', pageWidth / 2, pageHeight - 10, { align: 'center' });
+
+  // Save the PDF with specified filename format
+  const filename = `Memo_${memo.memo_number}_${memo.supplier.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+  pdf.save(filename);
+};
+
+// Generate Loading Slip PDF - Professional Template with proper logo positioning
+export const generateLoadingSlipPDF = async (loadingSlip: LoadingSlip): Promise<void> => {
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+
+  // Add logo with proper positioning to avoid collision
+  try {
+    const logoPng = await ensurePngDataUrl(COMPANY_LOGO_BASE64);
+    pdf.addImage(logoPng, 'PNG', 15, 8, 25, 25); // Positioned on left side
+  } catch (error) {
+    console.warn('Could not add logo to PDF:', error);
+  }
+
+  // Company Header - Professional Layout with blue accent
+  pdf.setFontSize(16);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(25, 118, 210); // Professional blue color
+  pdf.text(COMPANY_INFO.name, pageWidth / 2, 15, { align: 'center' });
+
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(0, 0, 0);
+  pdf.text(COMPANY_INFO.address, pageWidth / 2, 21, { align: 'center' });
+  pdf.text(COMPANY_INFO.address2, pageWidth / 2, 25, { align: 'center' });
+  pdf.text(COMPANY_INFO.location, pageWidth / 2, 29, { align: 'center' });
+
+  // Contact details in header
+  pdf.setFontSize(7);
+  pdf.text(COMPANY_INFO.phone, 15, 37);
+  pdf.text(COMPANY_INFO.pan, pageWidth - 15, 37, { align: 'right' });
+  pdf.text(COMPANY_INFO.tagline, pageWidth / 2, 41, { align: 'center' });
+
+  // Header border - black color
+  pdf.setLineWidth(1);
+  pdf.setDrawColor(0, 0, 0);
+  pdf.rect(10, 5, pageWidth - 20, 40);
+
+  // Document title with blue background
+  pdf.setFillColor(25, 118, 210);
+  pdf.rect(10, 50, pageWidth - 20, 10, 'F');
+  pdf.setFontSize(14);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(255, 255, 255);
+  pdf.text('LOADING SLIP', pageWidth / 2, 57, { align: 'center' });
+
+  // Document details box
+  pdf.setLineWidth(0.5);
+  pdf.setDrawColor(0, 0, 0);
+  pdf.setTextColor(0, 0, 0);
+  pdf.rect(10, 65, pageWidth - 20, 15);
+  pdf.setFontSize(9);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text(`Loading Slip No: ${loadingSlip.slip_number}`, 15, 70);
+  pdf.text(`Date: ${formatDate(loadingSlip.date)}`, pageWidth - 15, 70, { align: 'right' });
+  pdf.text(`Vehicle No: ${loadingSlip.vehicle_no}`, 15, 76);
+  pdf.text(`Weight: ${loadingSlip.weight} MT`, pageWidth - 15, 76, { align: 'right' });
+
+  // Party Details Section - increased size and intense blue background
+  pdf.setFillColor(25, 118, 210);
+  pdf.rect(10, 85, pageWidth - 20, 8, 'F');
+  pdf.setFontSize(12);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(255, 255, 255);
+  pdf.text(`Party: ${loadingSlip.party}`, 15, 91);
+  pdf.setTextColor(0, 0, 0);
+
+  // Transport details table
+  pdf.setLineWidth(0.3);
+  const transportY = 103;
+
+  // From/To section
+  pdf.rect(10, transportY, (pageWidth - 20) / 2, 15);
+  pdf.rect(10 + (pageWidth - 20) / 2, transportY, (pageWidth - 20) / 2, 15);
+
+  pdf.setFontSize(9);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('FROM:', 15, transportY + 5);
+  pdf.text('TO:', 15 + (pageWidth - 20) / 2, transportY + 5);
+
+  pdf.setFont('helvetica', 'normal');
+  pdf.text(loadingSlip.from_location, 15, transportY + 10);
+  pdf.text(loadingSlip.to_location, 15 + (pageWidth - 20) / 2, transportY + 10);
+
+  // Material and dimensions
+  pdf.rect(10, transportY + 15, (pageWidth - 20) / 2, 12);
+  pdf.rect(10 + (pageWidth - 20) / 2, transportY + 15, (pageWidth - 20) / 2, 12);
+
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('MATERIAL:', 15, transportY + 22);
+  pdf.text('DIMENSIONS:', 15 + (pageWidth - 20) / 2, transportY + 22);
+
+  pdf.setFont('helvetica', 'normal');
+  pdf.text('MACHINERY', 15, transportY + 27);
+  pdf.text(loadingSlip.dimension || 'As per requirement', 15 + (pageWidth - 20) / 2, transportY + 27);
+
+  // Financial Details Section - intense blue background
+  pdf.setFillColor(25, 118, 210);
+  pdf.rect(10, 135, pageWidth - 20, 8, 'F');
+  pdf.setFontSize(11);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(255, 255, 255);
+  pdf.text('FINANCIAL DETAILS', 15, 140);
+  pdf.setTextColor(0, 0, 0);
+
+  const financialY = 148;
+  pdf.setLineWidth(0.3);
+
+  // Financial table
+  const financialRows = [
+    ['Freight Amount:', formatCurrency(loadingSlip.freight)],
+    ['Advance Amount:', formatCurrency(loadingSlip.advance)],
+  ];
+
+  if (loadingSlip.rto > 0) {
+    financialRows.push(['RTO Amount:', formatCurrency(loadingSlip.rto)]);
+  }
+
+  financialRows.push(['Balance Amount:', formatCurrency(loadingSlip.total_freight - loadingSlip.advance)]);
+
+  financialRows.forEach((row, index) => {
+    const rowY = financialY + (index * 10);
+    pdf.rect(10, rowY, pageWidth - 20, 10);
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(row[0], 15, rowY + 6);
+    pdf.text(row[1], pageWidth - 15, rowY + 6, { align: 'right' });
+  });
+
+  // Bank Details Section - intense blue background
+  pdf.setFillColor(25, 118, 210);
+  pdf.rect(10, 185, pageWidth - 20, 8, 'F');
+  pdf.setFontSize(11);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(255, 255, 255);
+  pdf.text('BANK DETAILS', 15, 190);
+  pdf.setTextColor(0, 0, 0);
+
+  const bankY = 198;
+  const bankDetails = [
+    ['Beneficiary Name:', COMPANY_INFO.name],
+    ['Account No:', '231005501207'],
+    ['IFSC Code:', 'ICIC0002310'],
+    ['Branch:', 'GHODASAR, AHMEDABAD']
+  ];
+
+  bankDetails.forEach((detail, index) => {
+    const rowY = bankY + (index * 8);
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(detail[0], 15, rowY);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(detail[1], 70, rowY);
+  });
+
+  // Terms and Conditions
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('TERMS & CONDITIONS:', 15, 250);
+
+  pdf.setFont('helvetica', 'normal');
+  const terms = [
+    '• We are not responsible for accident, leakage & breakage during transit',
+    '• Loading/Unloading charges extra as applicable',
+    '• Payment to be made within 15 days of delivery',
+    '• Subject to Ahmedabad jurisdiction only',
+    '• One day halting charges Rs.4000'
+  ];
+
+  terms.forEach((term, index) => {
+    pdf.text(term, 15, 256 + (index * 4));
+  });
+
+  // Signature section
+  pdf.setLineWidth(0.5);
+  pdf.line(15, pageHeight - 35, 80, pageHeight - 35);
+  pdf.line(pageWidth - 80, pageHeight - 35, pageWidth - 15, pageHeight - 35);
+
+  pdf.setFontSize(9);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text('CONSIGNOR SIGNATURE', 47, pageHeight - 30, { align: 'center' });
+  pdf.text('AUTHORISED SIGNATORY', pageWidth - 47, pageHeight - 30, { align: 'center' });
+
+  pdf.setFont('helvetica', 'bold');
+  pdf.text(`FOR ${COMPANY_INFO.name}`, pageWidth - 47, pageHeight - 25, { align: 'center' });
+
+  // Footer with system info
+  pdf.setFontSize(7);
+  pdf.setFont('helvetica', 'italic');
+  pdf.setTextColor(100, 100, 100);
+  pdf.text('GENERATED FROM BHAVISHYA ROAD CARRIER SYSTEM', pageWidth / 2, pageHeight - 10, { align: 'center' });
+
+  // Save the PDF with specified filename format
+  const filename = `LoadingSlip_${loadingSlip.slip_number}_${loadingSlip.party.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+  pdf.save(filename);
+};
+
+// Generate Professional Bill PDF - Exact format matching user's requirement
+export const generateBillPDF = async (bill: Bill, loadingSlip: LoadingSlip) => {
+  const pdf = new jsPDF('l', 'mm', 'a4'); // Landscape orientation
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 20;
+
+  // Header with date and bill number
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(0, 0, 0);
+  pdf.text(`${new Date(bill.date).toLocaleDateString('en-GB')}, ${new Date(bill.date).toLocaleTimeString('en-GB', { hour12: false })}`, margin, 15);
+  pdf.text(`Bill - ${bill.bill_number}`, pageWidth - margin, 15, { align: 'right' });
+
+  // Company header box
+  pdf.setLineWidth(0.5);
+  pdf.setDrawColor(0, 0, 0);
+  pdf.rect(margin, 25, pageWidth - (2 * margin), 45);
+
+  // Logo
+  try {
+    const logoPng = await ensurePngDataUrl(COMPANY_LOGO_BASE64);
+    pdf.addImage(logoPng, 'PNG', margin + 5, 30, 20, 20);
+  } catch (error) {
+    console.warn('Could not add logo to PDF:', error);
+  }
+
+  // Company name and details
+  pdf.setFontSize(16);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(0, 102, 204);
+  pdf.text('BHAVISHYA ROAD CARRIERS', pageWidth / 2, 35, { align: 'center' });
+  
+  pdf.setFontSize(9);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(0, 0, 0);
+  pdf.text('Specialist in Heavy ODC, Hydraulic, Low Bed Trailer, Flat Bed Trailer Transport & Commission Agent', pageWidth / 2, 42, { align: 'center' });
+  pdf.text('FLEET OWNERS, TRANSPORT CONTRACTORS & COMMISSION AGENTS', pageWidth / 2, 47, { align: 'center' });
+  pdf.text('404, Parijaat Business Center, Nr. SP Ring Road, Aslali, Ahmedabad - 382405', pageWidth / 2, 52, { align: 'center' });
+  pdf.text('(SUBJECT TO AHMEDABAD JURISDICTION)', pageWidth / 2, 57, { align: 'center' });
+
+  // MOB and PAN section
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text(`MOB:9824026576, 9824900776`, margin, 65);
+  pdf.text(`PAN NO: BNDPK7173D`, pageWidth - margin, 65, { align: 'right' });
+
+  // Party details
+  pdf.text(`M/S: ${bill.party.toUpperCase()}`, margin, 75);
+  pdf.text(`BILL NO: ${bill.bill_number}`, pageWidth - margin, 75, { align: 'right' });
+  pdf.text(`BILL DATE: ${new Date(bill.date).toLocaleDateString('en-GB')}`, pageWidth - margin, 82, { align: 'right' });
+
+  // Table setup
+  const tableY = 95;
+  const rowHeight = 12;
+  const colWidths = [15, 23, 24, 24, 22, 13, 22, 22, 22, 20, 22, 20]; // Total = 257mm
+  let colX = [margin];
+  for (let i = 1; i < colWidths.length; i++) {
+    colX[i] = colX[i-1] + colWidths[i-1];
+  }
+
+  const headers = ['CN NO', 'LOADING DT', 'FROM', 'TO', 'TRAILOR NO', 'WT', 'FREIGHT', 'RTO', 'DETENTION', 'EXTRA','ADVANCE', 'BALANCE'];
+
+  // Draw table header
+  pdf.setFillColor(240, 240, 240);
+  pdf.rect(margin, tableY, pageWidth - (2 * margin), rowHeight, 'F');
+  pdf.setLineWidth(0.3);
+  pdf.rect(margin, tableY, pageWidth - (2 * margin), rowHeight);
+
+  // Header text
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'bold');
+  headers.forEach((header, index) => {
+    if (index < colX.length) {
+      pdf.text(header, colX[index] + 2, tableY + 8);
+      // Vertical lines
+      if (index > 0) {
+        pdf.line(colX[index], tableY, colX[index], tableY + rowHeight);
+      }
+    }
+  });
+
+  // Table data row
+  const dataY = tableY + rowHeight;
+  pdf.rect(margin, dataY, pageWidth - (2 * margin), rowHeight);
+  
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(8);
+  
+  // Data from loading slip and bill
+  const totalAdvance = bill.advance_payments?.reduce((sum, payment) => sum + payment.amount, 0) || 0;
+  const detention = bill.detention || 0;
+  const extra = bill.extra || 0;  
+  const rto = bill.rto || 0;
+  // BALANCE = FREIGHT - ADVANCE + DETENTION + EXTRA + RTO - MAMOOL - PENALTIES - TDS
+  const balance = bill.bill_amount - totalAdvance + detention + extra + rto - (bill.mamool || 0) - (bill.penalties || 0) - (bill.tds || 0);
+  
+  const rowData = [
+    loadingSlip.slip_number || '6707',
+    new Date(loadingSlip.date).toLocaleDateString('en-GB'),
+    loadingSlip.from_location.substring(0, 6),
+    loadingSlip.to_location.substring(0, 6),
+    loadingSlip.vehicle_no,
+    `${loadingSlip.weight || 25}MT`,
+    formatCurrency(bill.bill_amount).replace('Rs. ', ''),
+    formatCurrency(rto).replace('Rs. ', ''),
+    formatCurrency(detention).replace('Rs. ', ''),
+    formatCurrency(extra).replace('Rs. ', ''),
+    formatCurrency(totalAdvance).replace('Rs. ', ''),
+    formatCurrency(balance).replace('Rs. ', '')
+  ];
+
+  rowData.forEach((data, index) => {
+    if (index < colX.length) {
+      pdf.text(data, colX[index] + 2, dataY + 8);
+      // Vertical lines
+      if (index > 0) {
+        pdf.line(colX[index], dataY, colX[index], dataY + rowHeight);
+      }
+    }
+  });
+
+  // Total row
+  const totalY = dataY + rowHeight;
+  pdf.rect(margin, totalY, pageWidth - (2 * margin), rowHeight);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('TOTAL', margin + 5, totalY + 8);
+  pdf.text(formatCurrency(bill.bill_amount).replace('Rs. ', ''), colX[6] + 2, totalY + 8);
+  pdf.text(formatCurrency(totalAdvance).replace('Rs. ', ''), colX[10] + 2, totalY + 8);
+  pdf.text(formatCurrency(balance).replace('Rs. ', ''), colX[11] + 2, totalY + 8);
+
+  // Vertical lines for total row
+  colX.forEach((x, index) => {
+    if (index > 0) {
+      pdf.line(x, totalY, x, totalY + rowHeight);
+    }
+  });
+
+  // Advance Details Section (if any advances exist)
+  let advanceY = totalY + 15;
+  if (bill.advance_payments && bill.advance_payments.length > 0) {
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(9);
+    pdf.text('ADVANCE DETAILS:', margin, advanceY);
+    
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    bill.advance_payments.forEach((payment, index) => {
+      advanceY += 8;
+      pdf.text(`${index + 1}. Date: ${new Date(payment.date).toLocaleDateString('en-GB')} - Amount: ${formatCurrency(payment.amount)} - Mode: ${payment.mode?.toUpperCase() || 'CASH'}`, margin, advanceY);
+    });
+    advanceY += 10;
+  }
+
+  // Combined Bank Details and Signature section (full width)
+  const bankY = advanceY > 0 ? advanceY + 5 : totalY + 20;
+  const boxHeight = 35;
+  pdf.rect(margin, bankY, pageWidth - (2 * margin), boxHeight);
+  
+  // No divider line - remove the vertical separator
+
+  // Left side - Bank Details
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(9);
+  pdf.text('BANK DETAILS', margin + 5, bankY + 6);
+  
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(8);
+  pdf.text('BENEFICIARY NAME: BHAVISHYA ROAD CARRIERS', margin + 5, bankY + 12);
+  pdf.text('ACCOUNT NO: 231005501207', margin + 5, bankY + 18);
+  pdf.text('IFSC CODE: ICIC0002310', margin + 5, bankY + 24);
+  pdf.text('BRANCH NAME: GHODASAR, AHMEDABAD', margin + 5, bankY + 30);
+
+  // Right side - Signature
+  const sigX = pageWidth - 80;
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(9);
+  pdf.text('FOR, BHAVISHYA ROAD CARRIERS', sigX, bankY + 20);
+  pdf.text('AUTHORISED SIGNATORY', sigX, bankY + 30);
+
+  // Add POD image if available
+  if (bill.pod_image) {
+    // Add second page with full POD image
+    pdf.addPage();
+    
+    // Header for POD page
+    pdf.setFontSize(16);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(0, 102, 204);
+    pdf.text('PROOF OF DELIVERY (POD)', pageWidth / 2, 30, { align: 'center' });
+    
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(`Bill No: ${bill.bill_number}`, margin, 45);
+    pdf.text(`Party: ${bill.party}`, margin, 55);
+    pdf.text(`Vehicle: ${loadingSlip.vehicle_no}`, margin, 65);
+    pdf.text(`Route: ${loadingSlip.from_location} → ${loadingSlip.to_location}`, margin, 75);
+    
+    // Full size POD image
+    try {
+      const podFullWidth = pageWidth - (2 * margin);
+      const podFullHeight = pageHeight - 120;
+      pdf.addImage(bill.pod_image, 'JPEG', margin, 85, podFullWidth, podFullHeight);
+    } catch (error) {
+      console.warn('Could not add POD image to second page:', error);
+      pdf.setFontSize(10);
+      pdf.text('POD image could not be displayed', pageWidth / 2, pageHeight / 2, { align: 'center' });
+    }
+  }
+
+  // Footer
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(128, 128, 128);
+  pdf.text('GENERATED BY BHAVISHYA ROAD CARRIERS SYSTEM', pageWidth / 2, pageHeight - 10, { align: 'center' });
+
+  // Save the PDF
+  const filename = `Bill_${bill.bill_number}_${bill.party.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+  pdf.save(filename);
+};
+
+// Generate PDF from HTML element (alternative method)
+export const generatePDFFromHTML = async (elementId: string, filename: string): Promise<void> => {
+  const element = document.getElementById(elementId);
+  if (!element) {
+    throw new Error(`Element with id "${elementId}" not found`);
+  }
+  
+  const html2canvas = (await import('html2canvas')).default;
+  const canvas = await html2canvas(element, {
+    scale: 2,
+    useCORS: true,
+    allowTaint: true
+  });
+  
+  const imgData = canvas.toDataURL('image/png');
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const imgWidth = 210;
+  const pageHeight = 295;
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  let heightLeft = imgHeight;
+  
+  let position = 0;
+  
+  pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+  heightLeft -= pageHeight;
+  
+  while (heightLeft >= 0) {
+    position = heightLeft - imgHeight;
+    pdf.addPage();
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+  }
+  
+  pdf.save(filename);
+};
