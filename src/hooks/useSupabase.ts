@@ -36,12 +36,8 @@ export const useSupabase = (user: User | null, companyId: string | null) => {
       return;
     }
 
-    // Skip database operations for temporary company IDs
-    if (companyId.startsWith('temp-company-')) {
-      console.log('Using temporary company ID, skipping database operations');
-      setLoading(false);
-      return;
-    }
+    // Proceed with database operations for real company ID
+    console.log('Loading data for company:', companyId);
 
     loadData();
     setupRealtimeSubscription();
@@ -140,14 +136,6 @@ export const useSupabase = (user: User | null, companyId: string | null) => {
   const addBill = async (billData: any) => {
     if (!companyId) return;
     
-    // Skip database operations for temporary company IDs
-    if (companyId.startsWith('temp-company-')) {
-      console.log('Temporary company - simulating bill creation');
-      const mockBill = { ...billData, id: Date.now().toString(), company_id: companyId };
-      setData(prev => ({ ...prev, bills: [...prev.bills, mockBill] }));
-      return mockBill;
-    }
-    
     const { data, error } = await supabase
       .from('bills')
       .insert({ ...billData, company_id: companyId })
@@ -160,14 +148,6 @@ export const useSupabase = (user: User | null, companyId: string | null) => {
 
   const addMemo = async (memoData: any) => {
     if (!companyId) return;
-    
-    // Skip database operations for temporary company IDs
-    if (companyId.startsWith('temp-company-')) {
-      console.log('Temporary company - simulating memo creation');
-      const mockMemo = { ...memoData, id: Date.now().toString(), company_id: companyId };
-      setData(prev => ({ ...prev, memos: [...prev.memos, mockMemo] }));
-      return mockMemo;
-    }
     
     const { data, error } = await supabase
       .from('memos')
@@ -182,14 +162,6 @@ export const useSupabase = (user: User | null, companyId: string | null) => {
   const addLoadingSlip = async (slipData: any) => {
     if (!companyId) return;
     
-    // Skip database operations for temporary company IDs
-    if (companyId.startsWith('temp-company-')) {
-      console.log('Temporary company - simulating loading slip creation');
-      const mockSlip = { ...slipData, id: Date.now().toString(), company_id: companyId };
-      setData(prev => ({ ...prev, loadingSlips: [...prev.loadingSlips, mockSlip] }));
-      return mockSlip;
-    }
-    
     const { data, error } = await supabase
       .from('loading_slips')
       .insert({ ...slipData, company_id: companyId })
@@ -202,14 +174,6 @@ export const useSupabase = (user: User | null, companyId: string | null) => {
 
   const addParty = async (partyData: any) => {
     if (!companyId) return;
-    
-    // Skip database operations for temporary company IDs
-    if (companyId.startsWith('temp-company-')) {
-      console.log('Temporary company - simulating party creation');
-      const mockParty = { ...partyData, id: Date.now().toString(), company_id: companyId };
-      setData(prev => ({ ...prev, parties: [...prev.parties, mockParty] }));
-      return mockParty;
-    }
     
     const { data, error } = await supabase
       .from('parties')
@@ -224,14 +188,6 @@ export const useSupabase = (user: User | null, companyId: string | null) => {
   const addSupplier = async (supplierData: any) => {
     if (!companyId) return;
     
-    // Skip database operations for temporary company IDs
-    if (companyId.startsWith('temp-company-')) {
-      console.log('Temporary company - simulating supplier creation');
-      const mockSupplier = { ...supplierData, id: Date.now().toString(), company_id: companyId };
-      setData(prev => ({ ...prev, suppliers: [...prev.suppliers, mockSupplier] }));
-      return mockSupplier;
-    }
-    
     const { data, error } = await supabase
       .from('suppliers')
       .insert({ ...supplierData, company_id: companyId })
@@ -244,14 +200,6 @@ export const useSupabase = (user: User | null, companyId: string | null) => {
 
   const addVehicle = async (vehicleData: any) => {
     if (!companyId) return;
-    
-    // Skip database operations for temporary company IDs
-    if (companyId.startsWith('temp-company-')) {
-      console.log('Temporary company - simulating vehicle creation');
-      const mockVehicle = { ...vehicleData, id: Date.now().toString(), company_id: companyId };
-      setData(prev => ({ ...prev, vehicles: [...prev.vehicles, mockVehicle] }));
-      return mockVehicle;
-    }
     
     const { data, error } = await supabase
       .from('vehicles')

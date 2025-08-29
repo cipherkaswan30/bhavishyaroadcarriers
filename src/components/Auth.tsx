@@ -40,13 +40,41 @@ export const Auth: React.FC<AuthProps> = ({ onAuthChange }) => {
     try {
       console.log('Handling user session for:', user.id);
       
-      // Use temporary company ID to bypass all database operations
-      const tempCompanyId = 'temp-company-' + user.id.slice(0, 8);
-      console.log('Using temporary company ID:', tempCompanyId);
+      // Check if user has a company membership
+      const { data: membership } = await supabase
+        .from('company_memberships')
+        .select('company_id')
+        .eq('user_id', user.id)
+        .single();
 
-      console.log('User session setup complete, company ID:', tempCompanyId);
+      let companyId = membership?.company_id;
+
+      // If no membership exists, create a default company
+      if (!companyId) {
+        const { data: newCompany } = await supabase
+          .from('companies')
+          .insert({
+            name: 'Bhavishya Road Carriers',
+            created_by: user.id
+          })
+          .select()
+          .single();
+
+        if (newCompany) {
+          await supabase
+            .from('company_memberships')
+            .insert({
+              user_id: user.id,
+              company_id: newCompany.id,
+              role: 'admin'
+            });
+          companyId = newCompany.id;
+        }
+      }
+
+      console.log('User session setup complete, company ID:', companyId);
       console.log('Calling onAuthChange...');
-      onAuthChange(user, tempCompanyId);
+      onAuthChange(user, companyId);
       console.log('onAuthChange called successfully');
     } catch (error) {
       console.error('Error handling user session:', error);
