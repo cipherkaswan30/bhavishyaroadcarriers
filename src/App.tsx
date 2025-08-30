@@ -27,6 +27,11 @@ function App() {
   const { loading } = useSupabase(user, companyId);
 
   useEffect(() => {
+    // Don't attempt to use Supabase if it's not configured
+    if (!supabase) {
+      return;
+    }
+
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
@@ -63,6 +68,7 @@ function App() {
   };
 
   const handleSignOut = async () => {
+    if (!supabase) return;
     await supabase.auth.signOut();
     setUser(null);
     setCompanyId(null);

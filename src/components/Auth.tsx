@@ -17,6 +17,12 @@ export const Auth: React.FC<AuthProps> = ({ onAuthChange }) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Don't attempt to use Supabase if it's not configured
+    if (!supabase) {
+      setError('Supabase is not configured. Please click "Connect to Supabase" in the top right.');
+      return;
+    }
+
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
@@ -48,6 +54,13 @@ export const Auth: React.FC<AuthProps> = ({ onAuthChange }) => {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check if Supabase is configured
+    if (!supabase) {
+      setError('Supabase is not configured. Please click "Connect to Supabase" in the top right.');
+      return;
+    }
+    
     setLoading(true);
     setError(null);
 
@@ -90,6 +103,25 @@ export const Auth: React.FC<AuthProps> = ({ onAuthChange }) => {
     }
   };
 
+  // Show Supabase setup message if not configured
+  if (!supabase) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md text-center">
+          <Building2 className="h-12 w-12 text-blue-600 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Setup Required</h1>
+          <p className="text-gray-600 mb-6">
+            Please click "Connect to Supabase" in the top right corner to set up your database connection.
+          </p>
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <p className="text-sm text-blue-800">
+              Once connected, you'll be able to sign in and use the transport management system.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">

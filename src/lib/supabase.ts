@@ -3,14 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY || '';
 
-console.log('Supabase config:', { 
-  url: supabaseUrl ? 'SET' : 'MISSING', 
-  key: supabaseAnonKey ? 'SET' : 'MISSING' 
-});
-
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables!');
-  console.error('Please click "Connect to Supabase" in the top right to set up your database connection.');
+  console.warn('Supabase environment variables not configured. Database features will be disabled until setup is complete.');
 }
 
 // Create a mock client if environment variables are missing
