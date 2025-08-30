@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BRC Sync Test</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>BRC Data Sync Test</h1>
+    <button onclick="testSync()">Test Database Sync</button>
+    <button onclick="loadData()">Load All Data</button>
+    <div id="results"></div>
+
+    <script>
+        // Replace with your actual Supabase credentials
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        async function testSync() {
+            const results = document.getElementById('results');
+            results.innerHTML = 'Testing...';
+            
+            try {
+                // Test insert
+                const { data, error } = await supabase
+                    .from('bills')
+                    .insert({
+                        company_id: 'test-sync-' + Date.now(),
+                        number: Math.floor(Math.random() * 1000),
+                        freight: 1000,
+                        detention: 0,
+                        extra_charges: 0,
+                        status: 'pending'
+                    })
+                    .select()
+                    .single();
+                
+                if (error) {
+                    results.innerHTML = `❌ Insert failed: ${error.message}`;
+                    return;
+                }
+                
+                results.innerHTML = `✅ Insert successful: ${JSON.stringify(data, null, 2)}`;
+                
+                // Test if it appears in another query
+                setTimeout(async () => {
+                    const { data: allData } = await supabase.from('bills').select('*');
+                    results.innerHTML += `<br><br>📊 Total bills in database: ${allData?.length || 0}`;
+                }, 1000);
+                
+            } catch (err) {
+                results.innerHTML = `❌ Error: ${err.message}`;
+            }
+        }
+        
+        async function loadData() {
+            const results = document.getElementById('results');
+            
+            try {
+                const { data, error } = await supabase.from('bills').select('*');
+                
+                if (error) {
+                    results.innerHTML = `❌ Load failed: ${error.message}`;
+                    return;
+                }
+                
+                results.innerHTML = `📊 Found ${data?.length || 0} bills:<br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                
+            } catch (err) {
+                results.innerHTML = `❌ Error: ${err.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

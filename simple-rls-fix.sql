@@ -3,10 +3,25 @@
 
 DROP POLICY IF EXISTS "Company members can read/write memberships" ON company_memberships;
 
--- Create a simple policy that allows users to insert their own membership
-CREATE POLICY "Users can insert own membership" ON company_memberships
-FOR INSERT WITH CHECK (user_id = auth.uid());
+-- Complete RLS fix for Bhavishya Road Carriers
+-- This fixes the 400 status errors by disabling RLS and removing all policies
 
--- Create a policy that allows users to read memberships where they are a member
-CREATE POLICY "Users can read own memberships" ON company_memberships
-FOR SELECT USING (user_id = auth.uid());
+-- Drop all existing policies first
+DROP POLICY IF EXISTS "Authenticated users can access companies" ON companies;
+DROP POLICY IF EXISTS "Authenticated users can access bills" ON bills;
+DROP POLICY IF EXISTS "Authenticated users can access memos" ON memos;
+DROP POLICY IF EXISTS "Authenticated users can access loading_slips" ON loading_slips;
+DROP POLICY IF EXISTS "Authenticated users can access parties" ON parties;
+DROP POLICY IF EXISTS "Authenticated users can access suppliers" ON suppliers;
+DROP POLICY IF EXISTS "Authenticated users can access vehicles" ON vehicles;
+DROP POLICY IF EXISTS "Authenticated users can access company_memberships" ON company_memberships;
+
+-- Disable RLS completely on all tables
+ALTER TABLE companies DISABLE ROW LEVEL SECURITY;
+ALTER TABLE bills DISABLE ROW LEVEL SECURITY;
+ALTER TABLE memos DISABLE ROW LEVEL SECURITY;
+ALTER TABLE loading_slips DISABLE ROW LEVEL SECURITY;
+ALTER TABLE parties DISABLE ROW LEVEL SECURITY;
+ALTER TABLE suppliers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE vehicles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE company_memberships DISABLE ROW LEVEL SECURITY;

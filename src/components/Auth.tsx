@@ -36,13 +36,12 @@ export const Auth: React.FC<AuthProps> = ({ onAuthChange }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleUserSession = (user: User) => {
+  const handleUserSession = async (user: User) => {
     console.log('Handling user session for:', user.id);
     
-    // Use a simple company ID based on user ID
-    const companyId = `company_${user.id.slice(0, 8)}`;
-
-    console.log('User session setup complete, company ID:', companyId);
+    // Use simple company ID approach - no database calls
+    const companyId = `company_${user.id.substring(0, 8)}`;
+    console.log('Using company ID:', companyId);
     onAuthChange(user, companyId);
     setLoading(false);
   };

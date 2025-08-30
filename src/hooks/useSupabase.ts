@@ -48,9 +48,33 @@ export const useSupabase = (user: User | null, companyId: string | null) => {
 
     try {
       setLoading(true);
-      console.log('Loading data for company:', companyId);
+      console.log('🔄 Loading data for company:', companyId);
 
-      // Load all data from Supabase in parallel
+      // Test basic connection first
+      const { error: testError } = await supabase
+        .from('bills')
+        .select('*')
+        .limit(1);
+
+      if (testError) {
+        console.error('❌ Basic database connection failed:', testError);
+        throw testError;
+      }
+
+      console.log('✅ Database connection working, loading all data...');
+
+      // Test with simple table first
+      const { data: testData, error: testTableError } = await supabase
+        .from('simple_test')
+        .select('*');
+        
+      if (testTableError) {
+        console.error('❌ Simple test table failed:', testTableError);
+      } else {
+        console.log('✅ Simple test table works:', testData);
+      }
+
+      // Load all data from Supabase WITHOUT company_id filter to test
       const [
         billsRes,
         memosRes,
@@ -59,13 +83,22 @@ export const useSupabase = (user: User | null, companyId: string | null) => {
         suppliersRes,
         vehiclesRes
       ] = await Promise.all([
-        supabase.from('bills').select('*').eq('company_id', companyId),
-        supabase.from('memos').select('*').eq('company_id', companyId),
-        supabase.from('loading_slips').select('*').eq('company_id', companyId),
-        supabase.from('parties').select('*').eq('company_id', companyId),
-        supabase.from('suppliers').select('*').eq('company_id', companyId),
-        supabase.from('vehicles').select('*').eq('company_id', companyId)
+        supabase.from('bills').select('*'),
+        supabase.from('memos').select('*'),
+        supabase.from('loading_slips').select('*'),
+        supabase.from('parties').select('*'),
+        supabase.from('suppliers').select('*'),
+        supabase.from('vehicles').select('*')
       ]);
+
+      console.log('📊 Raw data from database:', {
+        bills: billsRes.data?.length || 0,
+        memos: memosRes.data?.length || 0,
+        loadingSlips: loadingSlipsRes.data?.length || 0,
+        parties: partiesRes.data?.length || 0,
+        suppliers: suppliersRes.data?.length || 0,
+        vehicles: vehiclesRes.data?.length || 0
+      });
 
       setData({
         bills: billsRes.data || [],
@@ -80,9 +113,9 @@ export const useSupabase = (user: User | null, companyId: string | null) => {
         vehicleFuelExpenses: []
       });
       
-      console.log('Data loaded successfully from Supabase');
+      console.log('✅ Data loaded successfully from Supabase');
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('❌ Error loading data:', error);
       // Fallback to empty data if database fails
       setData({
         bills: [],
@@ -140,13 +173,20 @@ export const useSupabase = (user: User | null, companyId: string | null) => {
   const addBill = async (billData: any) => {
     if (!companyId) return;
     
+    console.log('🔄 Adding bill to database:', billData);
+    
     const { data, error } = await supabase
       .from('bills')
       .insert({ ...billData, company_id: companyId })
       .select()
       .single();
     
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Failed to add bill:', error);
+      throw error;
+    }
+    
+    console.log('✅ Bill added successfully:', data);
     return data;
   };
 

@@ -22,33 +22,44 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
-// Test database connection and permissions
-Promise.all([
-  supabase.from('companies').select('count', { count: 'exact', head: true }),
-  supabase.from('bills').select('count', { count: 'exact', head: true }),
-  supabase.from('memos').select('count', { count: 'exact', head: true }),
-  supabase.from('loading_slips').select('count', { count: 'exact', head: true }),
-  supabase.from('parties').select('count', { count: 'exact', head: true }),
-  supabase.from('suppliers').select('count', { count: 'exact', head: true }),
-  supabase.from('vehicles').select('count', { count: 'exact', head: true })
-]).then(results => {
-  const tableStatus = {
-    companies: results[0].error ? '❌' : '✅',
-    bills: results[1].error ? '❌' : '✅', 
-    memos: results[2].error ? '❌' : '✅',
-    loading_slips: results[3].error ? '❌' : '✅',
-    parties: results[4].error ? '❌' : '✅',
-    suppliers: results[5].error ? '❌' : '✅',
-    vehicles: results[6].error ? '❌' : '✅'
-  };
+// Test if tables actually exist and what columns they have
+const testTableStructure = async () => {
+  console.log('🔍 Testing table structure...');
   
-  console.log('📊 Database Table Status:', tableStatus);
-  
-  const errors = results.filter(r => r.error);
-  if (errors.length > 0) {
-    console.error('❌ Permission/RLS issues detected:', errors.map(e => e.error));
-    console.error('❌ This is why data is not syncing - check RLS policies');
-  } else {
-    console.log('✅ All tables accessible - data sync should work!');
+  try {
+    // Check if bills table exists and what columns it has
+    const { data, error } = await supabase.rpc('get_table_info', { table_name: 'bills' });
+    
+    if (error) {
+      console.log('⚠️ RPC failed, trying direct table access...');
+      
+      // Try a simple select to see what happens
+      const { data: simpleData, error: simpleError } = await supabase
+        .from('bills')
+        .select('*')
+        .limit(1);
+        
+      console.log('📊 Simple select result:', { data: simpleData, error: simpleError });
+      
+      // Try inserting with minimal data
+      const { data: insertData, error: insertError } = await supabase
+        .from('bills')
+        .insert({
+          number: 1,
+          freight: 100
+        })
+        .select();
+        
+      console.log('📊 Insert test result:', { data: insertData, error: insertError });
+      
+    } else {
+      console.log('✅ Table info:', data);
+    }
+    
+  } catch (error) {
+    console.error('❌ Table structure test failed:', error);
   }
-});
+};
+
+// Run test after a short delay
+setTimeout(testTableStructure, 2000);
