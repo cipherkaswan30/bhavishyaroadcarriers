@@ -4,7 +4,7 @@ import { formatCurrency } from '../utils/numberGenerator';
 import { useDataStore } from '../lib/store';
 
 const VehicleLedger: React.FC = () => {
-  const { vehicles, ledgerEntries, bankingEntries } = useDataStore();
+  const { vehicles, ledgerEntries } = useDataStore();
   const [selectedVehicle, setSelectedVehicle] = useState<string>('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');

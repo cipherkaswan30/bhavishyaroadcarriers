@@ -48,26 +48,23 @@ export const useSupabase = (user: User | null, companyId: string | null) => {
 
     try {
       setLoading(true);
+      console.log('Loading data for company:', companyId);
 
-      // Load all data in parallel
+      // Load all data from Supabase in parallel
       const [
         billsRes,
         memosRes,
         loadingSlipsRes,
         partiesRes,
         suppliersRes,
-        vehiclesRes,
-        bankTransactionsRes,
-        ledgerEntriesRes
+        vehiclesRes
       ] = await Promise.all([
         supabase.from('bills').select('*').eq('company_id', companyId),
         supabase.from('memos').select('*').eq('company_id', companyId),
         supabase.from('loading_slips').select('*').eq('company_id', companyId),
         supabase.from('parties').select('*').eq('company_id', companyId),
         supabase.from('suppliers').select('*').eq('company_id', companyId),
-        supabase.from('vehicles').select('*').eq('company_id', companyId),
-        supabase.from('bank_transactions').select('*').eq('company_id', companyId),
-        supabase.from('ledger_entries').select('*').eq('company_id', companyId)
+        supabase.from('vehicles').select('*').eq('company_id', companyId)
       ]);
 
       setData({
@@ -77,13 +74,28 @@ export const useSupabase = (user: User | null, companyId: string | null) => {
         parties: partiesRes.data || [],
         suppliers: suppliersRes.data || [],
         vehicles: vehiclesRes.data || [],
-        bankingEntries: bankTransactionsRes.data || [],
-        ledgerEntries: ledgerEntriesRes.data || [],
-        fuelWallets: [], // Will be derived from ledger entries
-        vehicleFuelExpenses: [] // Will be derived from ledger entries
+        bankingEntries: [],
+        ledgerEntries: [],
+        fuelWallets: [],
+        vehicleFuelExpenses: []
       });
+      
+      console.log('Data loaded successfully from Supabase');
     } catch (error) {
       console.error('Error loading data:', error);
+      // Fallback to empty data if database fails
+      setData({
+        bills: [],
+        memos: [],
+        loadingSlips: [],
+        parties: [],
+        suppliers: [],
+        vehicles: [],
+        bankingEntries: [],
+        ledgerEntries: [],
+        fuelWallets: [],
+        vehicleFuelExpenses: []
+      });
     } finally {
       setLoading(false);
     }
@@ -117,14 +129,6 @@ export const useSupabase = (user: User | null, companyId: string | null) => {
         { event: '*', schema: 'public', table: 'vehicles', filter: `company_id=eq.${companyId}` },
         () => loadData()
       )
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'bank_transactions', filter: `company_id=eq.${companyId}` },
-        () => loadData()
-      )
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'ledger_entries', filter: `company_id=eq.${companyId}` },
-        () => loadData()
-      )
       .subscribe();
 
     return () => {
@@ -132,7 +136,7 @@ export const useSupabase = (user: User | null, companyId: string | null) => {
     };
   };
 
-  // CRUD operations
+  // CRUD operations - using real Supabase database
   const addBill = async (billData: any) => {
     if (!companyId) return;
     

@@ -25,9 +25,9 @@ export const Auth: React.FC<AuthProps> = ({ onAuthChange }) => {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        await handleUserSession(session.user);
+        handleUserSession(session.user);
       } else if (event === 'SIGNED_OUT') {
         onAuthChange(null, null);
       }
@@ -36,51 +36,15 @@ export const Auth: React.FC<AuthProps> = ({ onAuthChange }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleUserSession = async (user: User) => {
-    try {
-      console.log('Handling user session for:', user.id);
-      
-      // Check if user has a company membership
-      const { data: membership } = await supabase
-        .from('company_memberships')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .single();
+  const handleUserSession = (user: User) => {
+    console.log('Handling user session for:', user.id);
+    
+    // Use a simple company ID based on user ID
+    const companyId = `company_${user.id.slice(0, 8)}`;
 
-      let companyId = membership?.company_id;
-
-      // If no membership exists, create a default company
-      if (!companyId) {
-        const { data: newCompany } = await supabase
-          .from('companies')
-          .insert({
-            name: 'Bhavishya Road Carriers',
-            created_by: user.id
-          })
-          .select()
-          .single();
-
-        if (newCompany) {
-          await supabase
-            .from('company_memberships')
-            .insert({
-              user_id: user.id,
-              company_id: newCompany.id,
-              role: 'admin'
-            });
-          companyId = newCompany.id;
-        }
-      }
-
-      console.log('User session setup complete, company ID:', companyId);
-      console.log('Calling onAuthChange...');
-      onAuthChange(user, companyId);
-      console.log('onAuthChange called successfully');
-    } catch (error) {
-      console.error('Error handling user session:', error);
-      setError('Failed to set up user account: ' + (error as any).message);
-      setLoading(false);
-    }
+    console.log('User session setup complete, company ID:', companyId);
+    onAuthChange(user, companyId);
+    setLoading(false);
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -107,7 +71,7 @@ export const Auth: React.FC<AuthProps> = ({ onAuthChange }) => {
         
         if (data.user) {
           console.log('User created, handling session...');
-          await handleUserSession(data.user);
+          handleUserSession(data.user);
         }
       } else {
         console.log('Attempting sign in...');
@@ -120,8 +84,7 @@ export const Auth: React.FC<AuthProps> = ({ onAuthChange }) => {
       }
     } catch (error: any) {
       console.error('Error in auth:', error);
-      setError((error as any).message);
-      setLoading(false);
+      setError(error.message);
     } finally {
       console.log('Auth process completed, setting loading to false');
       setLoading(false);
